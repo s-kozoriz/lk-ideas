@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ідеї від конкурентів — LK</title>
+<style>
+  :root{ --bg:#f4f4f6; --card:#fff; --line:#e3e3e8; --ink:#1c1c20; --muted:#6b6b72; --green:#1f9d55; --amber:#b7791f; --red:#b04646; --accent:#2f6fed; }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body{ margin:0; font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif; background:var(--bg); color:var(--ink); }
+  header{ position:sticky; top:0; background:var(--bg); padding:12px 14px 6px; border-bottom:1px solid var(--line); z-index:5; }
+  h1{ font-size:18px; margin:0 0 10px; }
+  .tabs{ display:flex; gap:6px; }
+  .tabs button{ flex:1; padding:9px 6px; font-size:14px; border:1px solid var(--line); background:var(--card); border-radius:10px; color:var(--muted); cursor:pointer; }
+  .tabs button.active{ background:var(--accent); color:#fff; border-color:var(--accent); font-weight:600; }
+  #summary{ padding:10px 14px; font-size:13px; color:var(--muted); }
+  #list{ padding:6px 14px 40px; }
+  .topic{ font-size:13px; font-weight:700; color:var(--muted); margin:16px 4px 6px; }
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px; box-shadow:0 1px 2px rgba(0,0,0,.03); }
+  .card h3{ margin:0 0 8px; font-size:16px; }
+  .card p{ margin:4px 0; font-size:14px; line-height:1.45; }
+  .card .lbl{ color:var(--muted); }
+  .rate{ display:inline-block; margin-top:6px; font-size:12px; padding:2px 8px; border-radius:20px; background:#eef; color:#3a3aa0; }
+  .src{ font-size:12px; color:var(--muted); margin-top:6px; }
+  .src a{ color:var(--accent); }
+  details{ margin-top:8px; } summary{ font-size:13px; color:var(--muted); cursor:pointer; }
+  details p{ font-size:13px; color:var(--muted); }
+  .btns{ display:flex; gap:8px; margin-top:12px; }
+  .btns button{ flex:1; padding:11px 6px; font-size:14px; border-radius:10px; border:none; cursor:pointer; font-weight:600; color:#fff; }
+  .b-now{ background:var(--green); } .b-later{ background:var(--amber); } .b-skip{ background:#9a9aa2; }
+  .b-done{ background:var(--accent); } .b-back{ background:#fff; color:var(--muted); border:1px solid var(--line)!important; }
+  .state{ font-size:12px; color:var(--muted); margin-bottom:6px; }
+  .empty{ text-align:center; color:var(--muted); padding:40px 10px; font-size:14px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Ідеї від конкурентів</h1>
+  <div class="tabs">
+    <button data-tab="new" class="active">Нові</button>
+    <button data-tab="now">Беру зараз</button>
+    <button data-tab="later">Беру пізніше</button>
+  </div>
+</header>
+<div id="summary"></div>
+<div id="list"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+firebase.initializeApp({
+  apiKey:'AIzaSyBfqRn_BJlHnDvxytfB4sdwK0YulR87j4Q',
+  authDomain:'lk-bauservice-bb872.firebaseapp.com',
+  databaseURL:'https://lk-bauservice-bb872-default-rtdb.europe-west1.firebasedatabase.app',
+  projectId:'lk-bauservice-bb872'
+});
+var db = firebase.database();
+var REF = 'competitor_ideas/items';
+var items = {};
+var curTab = 'new';
+
+var tabBtns = document.querySelectorAll('.tabs button');
+for (var i=0;i<tabBtns.length;i++){
+  tabBtns[i].onclick = function(){
+    curTab = this.getAttribute('data-tab');
+    for (var k=0;k<tabBtns.length;k++) tabBtns[k].classList.remove('active');
+    this.classList.add('active');
+    render();
+  };
+}
+
+function setDecision(id, d){
+  db.ref(REF + '/' + id).update({ decision: d, decidedAt: Date.now() });
+}
+
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function summary(){
+  var box = document.getElementById('summary');
+  var acc = {}, nDecided = 0;
+  for (var id in items){
+    var it = items[id]; if(!it) continue;
+    if (it.decision==='now' || it.decision==='later'){ nDecided++; acc[it.topic]=(acc[it.topic]||0)+1; }
+    else if (it.decision==='skip'){ nDecided++; }
+  }
+  if (nDecided < 3){ box.textContent = 'Познач кілька ідей — і тут з\'явиться, що тобі найцікавіше.'; return; }
+  var arr = []; for (var t in acc) arr.push([t,acc[t]]);
+  arr.sort(function(a,b){ return b[1]-a[1]; });
+  var top = arr.slice(0,2).map(function(x){ return x[0]; });
+  box.textContent = top.length ? ('🔎 Найчастіше береш: ' + top.join(', ')) : '';
+}
+
+function card(it, id){
+  var c = document.createElement('div'); c.className='card';
+  var tech = it.tech ? '<details><summary>технічні деталі (для реалізації)</summary><p>'+esc(it.tech)+'</p></details>' : '';
+  var head = '';
+  if (curTab !== 'new'){
+    head = '<div class="state">'+(curTab==='now'?'✓ беру зараз':'🕒 беру пізніше')+'</div>';
+  }
+  c.innerHTML =
+    head +
+    '<h3>'+esc(it.title)+'</h3>' +
+    '<p><span class="lbl">Що це:</span> '+esc(it.what)+'</p>' +
+    '<p><span class="lbl">Що тобі дає:</span> '+esc(it.value)+'</p>' +
+    '<div class="rate">'+esc(it.rating)+'</div>' +
+    '<div class="src">Куди: '+esc(it.app)+', крок '+esc(it.step)+' · Джерело: <a href="'+esc(it.url)+'" target="_blank" rel="noopener">'+esc(it.source)+'</a></div>' +
+    tech;
+  var btns = document.createElement('div'); btns.className='btns';
+  if (curTab === 'new'){
+    btns.innerHTML = '<button class="b-now">✓ Беру зараз</button><button class="b-later">🕒 Пізніше</button><button class="b-skip">✕ Нецікаво</button>';
+    btns.children[0].onclick=function(){ setDecision(id,'now'); };
+    btns.children[1].onclick=function(){ setDecision(id,'later'); };
+    btns.children[2].onclick=function(){ setDecision(id,'skip'); };
+  } else {
+    btns.innerHTML = '<button class="b-done">✓ Готово</button><button class="b-back">↩ В Нові</button>';
+    btns.children[0].onclick=function(){ setDecision(id,'done'); };
+    btns.children[1].onclick=function(){ setDecision(id,null); };
+  }
+  c.appendChild(btns);
+  return c;
+}
+
+function render(){
+  summary();
+  var list = document.getElementById('list');
+  list.innerHTML = '';
+  var match = function(it){
+    if (curTab==='new') return !it.decision;
+    return it.decision===curTab;
+  };
+  // group by topic
+  var groups = {};
+  var ids = Object.keys(items);
+  for (var n=0;n<ids.length;n++){
+    var id = ids[n], it = items[id];
+    if (!it || !it.title || !match(it)) continue;
+    var t = it.topic || 'Інше';
+    (groups[t] = groups[t] || []).push([id,it]);
+  }
+  var topics = Object.keys(groups);
+  if (!topics.length){
+    var e = document.createElement('div'); e.className='empty';
+    e.textContent = curTab==='new' ? 'Нових ідей поки немає — агент додасть під час наступного прогону.' : 'Тут поки порожньо.';
+    list.appendChild(e); return;
+  }
+  for (var g=0; g<topics.length; g++){
+    var th = document.createElement('div'); th.className='topic'; th.textContent = topics[g];
+    list.appendChild(th);
+    var rows = groups[topics[g]];
+    for (var r=0;r<rows.length;r++) list.appendChild(card(rows[r][1], rows[r][0]));
+  }
+}
+
+db.ref(REF).on('value', function(snap){ items = snap.val() || {}; render(); });
+</script>
+</body>
+</html>
