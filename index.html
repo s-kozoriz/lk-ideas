@@ -9,7 +9,8 @@
   *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   body{ margin:0; font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif; background:var(--bg); color:var(--ink); }
   header{ position:sticky; top:0; background:var(--bg); padding:12px 14px 6px; border-bottom:1px solid var(--line); z-index:5; }
-  h1{ font-size:18px; margin:0 0 10px; }
+  h1{ font-size:18px; margin:0 0 4px; }
+  .updated{ font-size:12px; color:var(--muted); margin:0 0 10px; }
   .tabs{ display:flex; gap:6px; }
   .tabs button{ flex:1; padding:9px 6px; font-size:14px; border:1px solid var(--line); background:var(--card); border-radius:10px; color:var(--muted); cursor:pointer; }
   .tabs button.active{ background:var(--accent); color:#fff; border-color:var(--accent); font-weight:600; }
@@ -36,6 +37,7 @@
 <body>
 <header>
   <h1>Ідеї від конкурентів</h1>
+  <div id="updated" class="updated"></div>
   <div class="tabs">
     <button data-tab="new" class="active">Нові</button>
     <button data-tab="now">Беру зараз</button>
@@ -75,6 +77,12 @@ function setDecision(id, d){
 
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+function fmtDate(ts){ if(!ts) return ''; var d=new Date(ts); var m=('0'+(d.getMonth()+1)).slice(-2), day=('0'+d.getDate()).slice(-2); return d.getFullYear()+'-'+m+'-'+day; }
+function updatedStamp(){
+  var maxd=''; for (var id in items){ var dt=items[id]&&items[id].date; if(dt&&dt>maxd) maxd=dt; }
+  document.getElementById('updated').textContent = maxd ? ('Оновлено: '+maxd) : '';
+}
+
 function summary(){
   var box = document.getElementById('summary');
   var acc = {}, nDecided = 0;
@@ -95,7 +103,8 @@ function card(it, id){
   var tech = it.tech ? '<details><summary>технічні деталі (для реалізації)</summary><p>'+esc(it.tech)+'</p></details>' : '';
   var head = '';
   if (curTab !== 'new'){
-    head = '<div class="state">'+(curTab==='now'?'✓ беру зараз':'🕒 беру пізніше')+'</div>';
+    var dd = it.decidedAt ? ' · позначено ' + fmtDate(it.decidedAt) : '';
+    head = '<div class="state">'+(curTab==='now'?'✓ беру зараз':'🕒 беру пізніше')+dd+'</div>';
   }
   c.innerHTML =
     head +
@@ -122,6 +131,7 @@ function card(it, id){
 
 function render(){
   summary();
+  updatedStamp();
   var list = document.getElementById('list');
   list.innerHTML = '';
   var match = function(it){
